@@ -4,31 +4,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 
-	"github.com/gorilla/mux"
-	"github.com/ShiftyX1/Facade/internal/config"
 	"github.com/ShiftyX1/Facade/internal/conditions"
+	"github.com/ShiftyX1/Facade/internal/config"
 	"github.com/ShiftyX1/Facade/internal/schema"
 	"github.com/ShiftyX1/Facade/internal/state"
 	"github.com/ShiftyX1/Facade/internal/template"
+	"github.com/gorilla/mux"
 )
 
-
 type Router struct {
-	mux              *mux.Router
-	config           *config.Config
-	templateEngine   *template.Engine
-	schemaGenerator  *schema.Generator
-	stateManager     *state.Manager
-	conditionsEval   *conditions.Evaluator
+	mux             *mux.Router
+	config          *config.Config
+	templateEngine  *template.Engine
+	schemaGenerator *schema.Generator
+	stateManager    *state.Manager
+	conditionsEval  *conditions.Evaluator
 }
-
 
 func New(cfg *config.Config) *Router {
 	templateEngine := template.New()
-	
+
 	return &Router{
 		mux:             mux.NewRouter(),
 		config:          cfg,
@@ -38,7 +37,6 @@ func New(cfg *config.Config) *Router {
 		conditionsEval:  conditions.New(templateEngine),
 	}
 }
-
 
 func (r *Router) Setup() error {
 	for _, route := range r.config.Routes {
@@ -50,25 +48,22 @@ func (r *Router) Setup() error {
 	return nil
 }
 
-
 func (r *Router) Handler() http.Handler {
 	return r.mux
 }
 
-
 func (r *Router) addRoute(route config.Route) error {
 	handler := r.createHandler(route)
-	
+
 	r.mux.HandleFunc(route.Path, handler).Methods(route.Method)
-	
+
 	slog.Debug("Route registered", "method", route.Method, "path", route.Path)
 	return nil
 }
 
-
 func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		
+
 		ctx, err := r.extractRequestContext(req)
 		if err != nil {
 			slog.Error("Failed to extract request context", "error", err)
@@ -76,7 +71,6 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			return
 		}
 
-		
 		var responseConfig *config.Response
 		var selectedCondition *config.RouteCondition
 
@@ -89,13 +83,12 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			}
 		}
 
-		
 		if selectedCondition != nil {
 			responseConfig = &config.Response{
 				Status:  selectedCondition.Status,
 				Body:    selectedCondition.Body,
 				Schema:  selectedCondition.Schema,
-				Headers: route.Response.Headers, 
+				Headers: route.Response.Headers,
 			}
 			if responseConfig.Status == 0 {
 				responseConfig.Status = route.Response.Status
@@ -104,7 +97,6 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			responseConfig = &route.Response
 		}
 
-		
 		responseBody, err := r.generateResponse(responseConfig, ctx)
 		if err != nil {
 			slog.Error("Failed to generate response", "error", err)
@@ -112,20 +104,18 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			return
 		}
 
-		
 		r.setResponseHeaders(w, responseConfig.Headers)
 
-		
 		if req.Method == "POST" || req.Method == "PUT" {
 			r.saveToState(route.Path, ctx.Body)
 		}
 
-		
 		w.WriteHeader(responseConfig.Status)
-		w.Write([]byte(responseBody))
+		if _, err := w.Write([]byte(responseBody)); err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 	}
 }
-
 
 func (r *Router) extractRequestContext(req *http.Request) (*template.Context, error) {
 	ctx := &template.Context{
@@ -134,20 +124,17 @@ func (r *Router) extractRequestContext(req *http.Request) (*template.Context, er
 		Body:        make(map[string]interface{}),
 	}
 
-	
 	vars := mux.Vars(req)
 	for key, value := range vars {
 		ctx.PathParams[key] = value
 	}
 
-	
 	for key, values := range req.URL.Query() {
 		if len(values) > 0 {
 			ctx.QueryParams[key] = values[0]
 		}
 	}
 
-	
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -167,9 +154,8 @@ func (r *Router) extractRequestContext(req *http.Request) (*template.Context, er
 	return ctx, nil
 }
 
-
 func (r *Router) generateResponse(response *config.Response, ctx *template.Context) (string, error) {
-	
+
 	if response.Schema != nil {
 		data, err := r.schemaGenerator.Generate(response.Schema)
 		if err != nil {
@@ -184,7 +170,6 @@ func (r *Router) generateResponse(response *config.Response, ctx *template.Conte
 		return string(jsonData), nil
 	}
 
-	
 	if response.Body != "" {
 		rendered, err := r.templateEngine.Render(response.Body, ctx)
 		if err != nil {
@@ -193,44 +178,36 @@ func (r *Router) generateResponse(response *config.Response, ctx *template.Conte
 		return rendered, nil
 	}
 
-	
 	return "", nil
 }
-
 
 func (r *Router) setResponseHeaders(w http.ResponseWriter, headers map[string]string) {
 	for key, value := range headers {
 		w.Header().Set(key, value)
 	}
 
-	
 	if w.Header().Get("Content-Type") == "" {
 		w.Header().Set("Content-Type", "application/json")
 	}
 }
-
 
 func (r *Router) saveToState(path string, body map[string]interface{}) {
 	if len(body) == 0 {
 		return
 	}
 
-	
 	key := r.generateStateKey(path, body)
 	r.stateManager.Set(key, body)
 }
 
-
 func (r *Router) generateStateKey(path string, body map[string]interface{}) string {
-	
+
 	if id, exists := body["id"]; exists {
 		return fmt.Sprintf("%s:%v", path, id)
 	}
 
-	
 	return path
 }
-
 
 func (r *Router) GetStateManager() *state.Manager {
 	return r.stateManager
