@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/ShiftyX1/Facade)](https://golang.org/)
 [![Release](https://img.shields.io/github/v/release/ShiftyX1/Facade)](https://github.com/ShiftyX1/Facade/releases)
-[![License](https://img.shields.io/github/license/ShiftyX1/Facade)](https://github.com/ShiftyX1/Facade/blob/master/LICENSE)
+[![License](https://img.shields.io/github/license/ShiftyX1/Facade?label=license)](https://github.com/ShiftyX1/Facade/blob/master/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ShiftyX1/Facade/ci.yml?branch=master)](https://github.com/ShiftyX1/Facade/actions)
 [![GitHub Issues](https://img.shields.io/github/issues/ShiftyX1/Facade)](https://github.com/ShiftyX1/Facade/issues)
 [![GitHub Stars](https://img.shields.io/github/stars/ShiftyX1/Facade)](https://github.com/ShiftyX1/Facade/stargazers)
