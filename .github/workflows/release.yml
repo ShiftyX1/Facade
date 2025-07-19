@@ -19,15 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -71,15 +71,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -100,7 +100,7 @@ jobs:
           go build -ldflags="-s -w" -o facade-${{ matrix.suffix }} cmd/facade/main.go
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: facade-${{ matrix.suffix }}
           path: facade-${{ matrix.suffix }}
@@ -112,12 +112,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Generate version
         id: version
@@ -188,7 +190,7 @@ jobs:
         run: |
           mkdir -p release-assets
           
-          find . -name "facade-*" -type f -exec cp {} release-assets/ \;
+          find artifacts -name "facade-*" -type f -exec cp {} release-assets/ \;
           
           cd release-assets
           
