@@ -1,0 +1,155 @@
+name: Tagged Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  GO_VERSION: '1.24.2'
+
+jobs:
+  release:
+    name: Create Tagged Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Run tests
+        run: make test
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build \
+            -ldflags="-s -w -X 'main.Version=${{ steps.version.outputs.version }}' -X 'main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)'" \
+            -o facade-${{ matrix.suffix }} \
+            cmd/facade/main.go
+
+      - name: Create archive
+        id: archive
+        run: |
+          if [[ "${{ matrix.suffix }}" == *.exe ]]; then
+            ASSET_NAME="facade-${{ steps.version.outputs.version }}-${{ matrix.suffix }}.zip"
+            zip "$ASSET_NAME" facade-${{ matrix.suffix }}
+          else
+            ASSET_NAME="facade-${{ steps.version.outputs.version }}-${{ matrix.suffix }}.tar.gz"
+            tar czf "$ASSET_NAME" facade-${{ matrix.suffix }}
+          fi
+          echo "asset_name=$ASSET_NAME" >> $GITHUB_OUTPUT
+          echo "Created asset: $ASSET_NAME"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.archive.outputs.asset_name }}
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "Facade ${{ steps.version.outputs.version }}"
+          body: |
+            ## Facade ${{ steps.version.outputs.version }}
+            
+            ### 📦 Installation
+            
+            Download the appropriate binary for your platform:
+            
+            #### Linux
+            ```bash
+            # AMD64
+            wget https://github.com/ShiftyX1/Facade/releases/download/${{ steps.version.outputs.version }}/facade-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+            tar xzf facade-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+            chmod +x facade-linux-amd64
+            ./facade-linux-amd64 --help
+            
+            # ARM64
+            wget https://github.com/ShiftyX1/Facade/releases/download/${{ steps.version.outputs.version }}/facade-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
+            tar xzf facade-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
+            chmod +x facade-linux-arm64
+            ./facade-linux-arm64 --help
+            ```
+            
+            #### macOS
+            ```bash
+            # Intel
+            wget https://github.com/ShiftyX1/Facade/releases/download/${{ steps.version.outputs.version }}/facade-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz
+            tar xzf facade-${{ steps.version.outputs.version }}-darwin-amd64.tar.gz
+            chmod +x facade-darwin-amd64
+            ./facade-darwin-amd64 --help
+            
+            # Apple Silicon
+            wget https://github.com/ShiftyX1/Facade/releases/download/${{ steps.version.outputs.version }}/facade-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+            tar xzf facade-${{ steps.version.outputs.version }}-darwin-arm64.tar.gz
+            chmod +x facade-darwin-arm64
+            ./facade-darwin-arm64 --help
+            ```
+            
+            #### Windows
+            ```powershell
+            # Download and extract facade-${{ steps.version.outputs.version }}-windows-amd64.exe.zip
+            # Run facade-windows-amd64.exe --help
+            ```
+            
+            ### 🚀 Quick Start
+            
+            ```bash
+            # Download example config
+            wget https://raw.githubusercontent.com/ShiftyX1/Facade/master/configs/example.yaml
+            
+            # Run Facade
+            ./facade-* -c example.yaml -v
+            
+            # Test
+            curl http://localhost:8080/users
+            ```
+            
+            ### 🔗 Links
+            
+            - [Documentation](https://github.com/ShiftyX1/Facade#readme)
+            - [Configuration Examples](https://github.com/ShiftyX1/Facade/tree/master/configs)
+            - [Report Issues](https://github.com/ShiftyX1/Facade/issues)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

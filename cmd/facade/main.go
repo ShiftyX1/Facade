@@ -18,9 +18,11 @@ var (
 	port       int
 	host       string
 	verbose    bool
-)
 
-var __version = "1.0"
+	// Build info - set via ldflags
+	Version   = "dev"
+	BuildTime = "unknown"
+)
 
 func main() {
 	var rootCmd = &cobra.Command{
@@ -28,7 +30,7 @@ func main() {
 		Short: "Simple and flexible mock HTTP server",
 		Long: `Facade is a simple and flexible mock HTTP server for developers.
 It allows you to quickly create mock APIs through YAML configuration without writing code.`,
-		Version: __version,
+		Version: Version,
 		Run:     runServer,
 	}
 
@@ -60,7 +62,9 @@ func runServer(cmd *cobra.Command, args []string) {
 		cfg.Server.Host = host
 	}
 
-	slog.Info("Loaded configuration",
+	slog.Info("Facade starting",
+		"version", Version,
+		"build_time", BuildTime,
 		"config_path", configPath,
 		"host", cfg.Server.Host,
 		"port", cfg.Server.Port,

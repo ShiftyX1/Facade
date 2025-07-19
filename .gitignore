@@ -22,9 +22,15 @@ go.work
 .DS_Store
 Thumbs.db
 
-# Application builds
+# Application binary
 facade-*
 build/
+
+# Release artifacts
+release-*/
+
+# Test results
+test_results.log
 
 *.log
 
