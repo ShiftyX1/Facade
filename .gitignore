@@ -1,0 +1,38 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+*.test
+
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+go.work
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+# Application builds
+facade-*
+build/
+
+*.log
+
+*.tmp
+*.temp
+
+configs/local.yaml
+configs/dev.yaml
+configs/test.yaml
+
+git_ignore/

@@ -1,0 +1,75 @@
+server:
+  port: 8081
+  host: localhost
+
+routes:
+  # Payment simulation for testing
+  - path: /api/payments
+    method: POST
+    response:
+      status: 200
+      conditions:
+        - if: '{{index .Body "amount"}} > "1000"'
+          body: '{"status": "pending", "id": "{{fakerUUID}}", "amount": {{index .Body "amount"}}, "verification_required": true}'
+        - if: '{{index .Body "card_number"}} == "4111111111111111"'
+          body: '{"status": "success", "id": "{{fakerUUID}}", "amount": {{index .Body "amount"}}, "transaction_id": "tx_{{randomInt 100000 999999}}"}'
+        - if: '{{index .Body "card_number"}} == "4000000000000002"'
+          status: 402
+          body: '{"status": "declined", "error": "Insufficient funds", "code": "INSUFFICIENT_FUNDS"}'
+        - default: true
+          status: 400
+          body: '{"status": "error", "error": "Invalid card number", "code": "INVALID_CARD"}'
+      headers:
+        Content-Type: application/json
+
+  # Order status simulation
+  - path: /api/orders/{id}/status
+    method: GET
+    response:
+      status: 200
+      conditions:
+        - if: '{{index .PathParams "id"}} == "1"'
+          body: '{"id": "1", "status": "pending", "items": 3, "total": 99.99}'
+        - if: '{{index .PathParams "id"}} == "2"'
+          body: '{"id": "2", "status": "shipped", "items": 1, "total": 25.50, "tracking": "TK{{randomInt 100000 999999}}"}'
+        - if: '{{index .PathParams "id"}} == "3"'
+          body: '{"id": "3", "status": "delivered", "items": 2, "total": 156.75, "delivered_at": "{{formatTime now "2006-01-02T15:04:05Z"}}"}'
+        - default: true
+          status: 404
+          body: '{"error": "Order not found"}'
+      headers:
+        Content-Type: application/json
+
+  # Error simulation
+  - path: /api/error/{code}
+    method: GET
+    response:
+      status: 200
+      conditions:
+        - if: '{{index .PathParams "code"}} == "500"'
+          status: 500
+          body: '{"error": "Internal server error", "code": 500}'
+        - if: '{{index .PathParams "code"}} == "404"'
+          status: 404
+          body: '{"error": "Not found", "code": 404}'
+        - if: '{{index .PathParams "code"}} == "401"'
+          status: 401
+          body: '{"error": "Unauthorized", "code": 401}'
+        - default: true
+          body: '{"message": "No error", "code": 200}'
+      headers:
+        Content-Type: application/json
+
+  # Slow endpoint simulation
+  - path: /api/slow
+    method: GET
+    response:
+      status: 200
+      body: '{"message": "This was slow", "duration_ms": 5000}'
+      headers:
+        Content-Type: application/json
+
+global:
+  cors: true
+  delay: 5s  # Global delay for all responses to simulate really endpoints
+  log_requests: true

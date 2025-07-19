@@ -1,0 +1,105 @@
+server:
+  port: 8080
+  host: localhost
+
+routes:
+  # User list
+  - path: /users
+    method: GET
+    response:
+      status: 200
+      schema:
+        type: array
+        items:
+          type: object
+          properties:
+            id: {type: integer, min: 1, max: 1000}
+            name: {type: string, faker: name}
+            email: {type: string, faker: email}
+            phone: {type: string, faker: phone}
+            company: {type: string, faker: company}
+        count: 5
+      headers:
+        Content-Type: application/json
+
+  # Get user by ID
+  - path: /users/{id}
+    method: GET
+    response:
+      status: 200
+      body: '{"id": "{{index .PathParams "id"}}", "name": "User {{index .PathParams "id"}}", "email": "user{{index .PathParams "id"}}@example.com"}'
+      headers:
+        Content-Type: application/json
+
+  # User creation
+  - path: /users
+    method: POST
+    response:
+      status: 201
+      body: '{"id": {{randomInt 1000 9999}}, "name": "{{index .Body "name"}}", "email": "{{index .Body "email"}}", "created": true}'
+      headers:
+        Content-Type: application/json
+
+  # Products with conditional logic
+  - path: /products
+    method: GET
+    response:
+      status: 200
+      conditions:
+        - if: '{{index .QueryParams "category"}} == "electronics"'
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {type: integer, min: 1, max: 100}
+                name: {type: string, faker: word}
+                category: {type: string}
+                price: {type: number, min: 10, max: 1000}
+            count: 3
+        - if: '{{index .QueryParams "random"}} == "true"'
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {faker: random_int, min: 1, max: 1000}
+                name: {faker: word}
+                description: {faker: sentence}
+            count: 10
+        - default: true
+          body: '[{"id": 1, "name": "Default Product", "price": 99.99}]'
+      headers:
+        Content-Type: application/json
+
+  # Search with query parameters
+  - path: /search
+    method: GET
+    response:
+      status: 200
+      body: '{"query": "{{index .QueryParams "q"}}", "limit": "{{index .QueryParams "limit"}}", "results": [{"id": 1, "title": "Result for {{index .QueryParams "q"}}"}]}'
+      headers:
+        Content-Type: application/json
+
+  # Files
+  - path: /files/{filename}
+    method: GET
+    response:
+      status: 200
+      body: '{"filename": "{{index .PathParams "filename"}}", "size": {{randomInt 1024 10240}}, "type": "text/plain"}'
+      headers:
+        Content-Type: application/json
+
+  # Health check
+  - path: /health
+    method: GET
+    response:
+      status: 200
+      body: '{"status": "ok", "timestamp": "{{formatTime now "2006-01-02T15:04:05Z07:00"}}"}'
+      headers:
+        Content-Type: application/json
+
+global:
+  cors: true
+  delay: 100ms
+  log_requests: true

@@ -1,0 +1,95 @@
+server:
+  port: 3001
+  host: localhost
+
+routes:
+  # Authentication API
+  - path: /api/auth/login
+    method: POST
+    response:
+      status: 200
+      body: '{"token": "{{fakerUUID}}", "user": {"id": {{randomInt 1 1000}}, "username": "{{index .Body "username"}}", "email": "{{index .Body "username"}}@example.com"}}'
+      headers:
+        Content-Type: application/json
+
+  - path: /api/auth/logout
+    method: POST
+    response:
+      status: 200
+      body: '{"message": "Logged out successfully"}'
+      headers:
+        Content-Type: application/json
+
+  # Users API
+  - path: /api/users
+    method: GET
+    response:
+      status: 200
+      schema:
+        type: object
+        properties:
+          data:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {type: integer, min: 1, max: 1000}
+                username: {type: string, faker: name}
+                email: {type: string, faker: email}
+                avatar: {type: string, faker: url}
+                created_at: {type: string, faker: timestamp}
+                is_active: {type: boolean}
+            count: 15
+          total: {type: integer, min: 100, max: 1000}
+          page: 1
+          per_page: 15
+      headers:
+        Content-Type: application/json
+
+  - path: /api/users/{id}
+    method: GET
+    response:
+      status: 200
+      body: '{"id": {{index .PathParams "id"}}, "username": "user_{{index .PathParams "id"}}", "email": "user{{index .PathParams "id"}}@example.com", "avatar": "{{fakerUUID}}", "bio": "{{fakerUUID}}", "created_at": "{{formatTime now "2006-01-02T15:04:05Z"}}"}'
+      headers:
+        Content-Type: application/json
+
+  # Posts API
+  - path: /api/posts
+    method: GET
+    response:
+      status: 200
+      conditions:
+        - if: '{{index .QueryParams "author_id"}} != ""'
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {type: integer, min: 1, max: 1000}
+                title: {type: string, faker: sentence}
+                content: {type: string, faker: paragraph}
+                author_id: {type: string}
+                created_at: {type: string, faker: timestamp}
+                likes: {type: integer, min: 0, max: 500}
+            count: 5
+        - default: true
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: {type: integer, min: 1, max: 1000}
+                title: {type: string, faker: sentence}
+                content: {type: string, faker: paragraph}
+                author_id: {type: integer, min: 1, max: 100}
+                created_at: {type: string, faker: timestamp}
+                likes: {type: integer, min: 0, max: 500}
+            count: 10
+      headers:
+        Content-Type: application/json
+
+global:
+  cors: true
+  delay: 300ms
+  log_requests: true
