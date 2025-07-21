@@ -20,7 +20,7 @@ var (
 	verbose    bool
 
 	// Build info - set via ldflags
-	Version   = "dev"
+	Version   string
 	BuildTime = "unknown"
 )
 

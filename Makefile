@@ -12,7 +12,10 @@ endif
 
 build:
 	mkdir -p build
-	go build -o $(BUILD_PATH) cmd/facade/main.go
+	go build \
+		-ldflags="-s -w -X 'main.Version=dev-$(shell git rev-parse --short HEAD)' -X 'main.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)'" \
+		-o $(BUILD_PATH) \
+		cmd/facade/main.go
 
 build-with-version:
 	mkdir -p build
