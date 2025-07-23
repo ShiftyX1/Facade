@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/ShiftyX1/Facade/internal/admin"
 	"github.com/ShiftyX1/Facade/internal/conditions"
 	"github.com/ShiftyX1/Facade/internal/config"
 	"github.com/ShiftyX1/Facade/internal/schema"
@@ -23,22 +24,27 @@ type Router struct {
 	schemaGenerator *schema.Generator
 	stateManager    *state.Manager
 	conditionsEval  *conditions.Evaluator
+	admin           *admin.Admin
 }
 
 func New(cfg *config.Config) *Router {
 	templateEngine := template.New()
+	stateManager := state.New(cfg.Global.LogRequests)
 
 	return &Router{
 		mux:             mux.NewRouter(),
 		config:          cfg,
 		templateEngine:  templateEngine,
 		schemaGenerator: schema.New(),
-		stateManager:    state.New(cfg.Global.LogRequests),
+		stateManager:    stateManager,
 		conditionsEval:  conditions.New(templateEngine),
+		admin:           admin.New(cfg, stateManager),
 	}
 }
 
 func (r *Router) Setup() error {
+	r.admin.SetupRoutes(r.mux)
+	
 	for _, route := range r.config.Routes {
 		if err := r.addRoute(route); err != nil {
 			return fmt.Errorf("failed to add route %s %s: %w", route.Method, route.Path, err)
@@ -63,10 +69,14 @@ func (r *Router) addRoute(route config.Route) error {
 
 func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		defer func() {
+			r.admin.TrackRequest(route.Method, route.Path, 200)
+		}()
 
 		ctx, err := r.extractRequestContext(req)
 		if err != nil {
 			slog.Error("Failed to extract request context", "error", err)
+			r.admin.TrackRequest(route.Method, route.Path, 500)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -78,6 +88,7 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			selectedCondition, err = r.conditionsEval.EvaluateConditions(route.Response.Conditions, ctx)
 			if err != nil {
 				slog.Error("Failed to evaluate conditions", "error", err)
+				r.admin.TrackRequest(route.Method, route.Path, 500)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
@@ -100,6 +111,7 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 		responseBody, err := r.generateResponse(responseConfig, ctx)
 		if err != nil {
 			slog.Error("Failed to generate response", "error", err)
+			r.admin.TrackRequest(route.Method, route.Path, 500)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -110,6 +122,8 @@ func (r *Router) createHandler(route config.Route) http.HandlerFunc {
 			r.saveToState(route.Path, ctx.Body)
 		}
 
+		r.admin.TrackRequest(route.Method, route.Path, responseConfig.Status)
+		
 		w.WriteHeader(responseConfig.Status)
 		if _, err := w.Write([]byte(responseBody)); err != nil {
 			log.Printf("Failed to write response: %v", err)
