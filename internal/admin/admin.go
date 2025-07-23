@@ -79,7 +79,9 @@ func (a *Admin) TrackRequest(method, path string, status int) {
 func (a *Admin) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	html := a.generateDashboardHTML()
-	w.Write([]byte(html))
+	if _, err := w.Write([]byte(html)); err != nil {
+		http.Error(w, "Failed to write response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) getRoutesHandler(w http.ResponseWriter, r *http.Request) {
@@ -106,21 +108,27 @@ func (a *Admin) getRoutesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routes)
+	if err := json.NewEncoder(w).Encode(routes); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(a.stats)
+	if err := json.NewEncoder(w).Encode(a.stats); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) getStateHandler(w http.ResponseWriter, r *http.Request) {
 	state := a.stateManager.GetAll()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"state": state,
 		"keys":  a.stateManager.Keys(),
-	})
+	}); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) testEndpointHandler(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +151,9 @@ func (a *Admin) testEndpointHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) staticHandler(w http.ResponseWriter, r *http.Request) {
@@ -154,10 +164,14 @@ func (a *Admin) staticHandler(w http.ResponseWriter, r *http.Request) {
 	switch file {
 	case "style.css":
 		w.Header().Set("Content-Type", "text/css")
-		w.Write([]byte(a.getCSS()))
+		if _, err := w.Write([]byte(a.getCSS())); err != nil {
+			http.Error(w, "Failed to write CSS", http.StatusInternalServerError)
+		}
 	case "script.js":
 		w.Header().Set("Content-Type", "application/javascript")
-		w.Write([]byte(a.getJavaScript()))
+		if _, err := w.Write([]byte(a.getJavaScript())); err != nil {
+			http.Error(w, "Failed to write JavaScript", http.StatusInternalServerError)
+		}
 	default:
 		http.NotFound(w, r)
 	}
@@ -165,7 +179,9 @@ func (a *Admin) staticHandler(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) getOpenAPIHandler(w http.ResponseWriter, r *http.Request) {
 	openapi := a.generateOpenAPISpec()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(openapi)
+	if err := json.NewEncoder(w).Encode(openapi); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (a *Admin) generateOpenAPISpec() map[string]interface{} {
