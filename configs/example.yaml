@@ -103,3 +103,8 @@ global:
   cors: true
   delay: 100ms
   log_requests: true
+
+# Admin panel configuration (optional)
+admin:
+  enabled: true
+  path: "/_admin"
